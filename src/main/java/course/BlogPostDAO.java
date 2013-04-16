@@ -17,12 +17,7 @@
 
 package course;
 
-import com.mongodb.BasicDBObject;
-import com.mongodb.DB;
-import com.mongodb.DBCollection;
-import com.mongodb.DBCursor;
-import com.mongodb.DBObject;
-import com.mongodb.WriteResult;
+import com.mongodb.*;
 
 import java.util.List;
 
@@ -36,7 +31,15 @@ public class BlogPostDAO {
     public DBObject findByPermalink(String permalink) {
         DBObject post = postsCollection.findOne(new BasicDBObject("permalink", permalink));
 
-
+        // fix up if a post has no likes
+        if (post != null) {
+            List<DBObject> comments = (List<DBObject>) post.get("comments");
+            for (DBObject comment : comments) {
+                if (!comment.containsField("num_likes")) {
+                    comment.put("num_likes", 0);
+                }
+            }
+        }
         return post;
     }
 
@@ -101,4 +104,17 @@ public class BlogPostDAO {
                 new BasicDBObject("$push", new BasicDBObject("comments", comment)), false, false);
     }
 
+    public void likePost(final String permalink, final int ordinal) {
+        DBObject currentPost = postsCollection.findOne(new BasicDBObject("permalink", permalink));
+        List<DBObject> comments = (List<DBObject>) currentPost.get("comments");
+        DBObject currentComment = comments.get(ordinal);
+        Integer currentNumLikes = (Integer) currentComment.get("num_likes");
+        if (currentNumLikes == null)
+            currentNumLikes = 1;
+        else
+            currentNumLikes++;
+        currentComment.put("num_likes", currentNumLikes);
+        postsCollection.update(new BasicDBObject("permalink", permalink), currentPost);
+
+    }
 }
